@@ -16,13 +16,22 @@ type Path = {
   decision_target: string | null;
 };
 
+type PathStep = {
+  id: string;
+  step_order: number;
+  title: string;
+  description: string | null;
+};
+
 export default function PathDetailPage() {
   const supabase = createClient();
   const router = useRouter();
   const params = useParams();
 
   const [loading, setLoading] = useState(true);
+  const [startingPath, setStartingPath] = useState(false);
   const [path, setPath] = useState<Path | null>(null);
+  const [steps, setSteps] = useState<PathStep[]>([]);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -36,26 +45,91 @@ export default function PathDetailPage() {
         return;
       }
 
-      const pathId = Array.isArray(params.id) ? params.id[0] : params.id;
-
-      const { data, error } = await supabase
+      const { data: pathData, error: pathError } = await supabase
         .from("paths")
         .select("*")
-        .eq("id", pathId)
+        .eq("id", params.id)
         .single();
 
-      if (error) {
-        setError(error.message);
+      if (pathError) {
+        setError(pathError.message);
         setLoading(false);
         return;
       }
 
-      setPath(data);
+      setPath(pathData);
+
+      const { data: stepsData, error: stepsError } = await supabase
+        .from("path_steps")
+        .select("id, step_order, title, description")
+        .eq("path_id", params.id)
+        .order("step_order", { ascending: true });
+
+      if (stepsError) {
+        setError(stepsError.message);
+        setLoading(false);
+        return;
+      }
+
+      setSteps(stepsData || []);
       setLoading(false);
     }
 
     loadPath();
   }, [params.id, router, supabase]);
+
+  async function handleStartPath() {
+    if (!path) return;
+
+    if (steps.length === 0) {
+      setError("No path steps available yet for this path.");
+      return;
+    }
+
+    setStartingPath(true);
+    setError("");
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      router.push("/login");
+      return;
+    }
+
+    const { error: deleteError } = await supabase
+      .from("plan_tasks")
+      .delete()
+      .eq("user_id", user.id);
+
+    if (deleteError) {
+      setError(deleteError.message);
+      setStartingPath(false);
+      return;
+    }
+
+    const generatedTasks = steps.map((step) => ({
+      user_id: user.id,
+      title: step.title,
+      description: step.description,
+      week_number: step.step_order,
+      status: "todo",
+    }));
+
+    const { error: insertError } = await supabase
+      .from("plan_tasks")
+      .insert(generatedTasks);
+
+    if (insertError) {
+      setError(insertError.message);
+      setStartingPath(false);
+      return;
+    }
+
+    setStartingPath(false);
+    router.push("/challenges");
+  }
 
   if (loading) {
     return (
@@ -76,63 +150,116 @@ export default function PathDetailPage() {
       <Navbar />
 
       <section className="px-6 py-20">
-        <div className="mx-auto max-w-4xl rounded-2xl bg-white p-8 shadow-sm">
-          {error && (
-            <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
-              {error}
-            </p>
-          )}
-
-          {path && (
-            <>
-              <p className="text-sm text-slate-500">{path.category || "Path"}</p>
-
-              <h1 className="mt-2 text-4xl font-semibold text-[#1F2A44]">
-                {path.title}
-              </h1>
-
-              <p className="mt-6 text-lg text-slate-600">
-                {path.short_description}
+        <div className="mx-auto max-w-4xl">
+          <div className="rounded-2xl bg-white p-8 shadow-sm">
+            {error && (
+              <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+                {error}
               </p>
+            )}
 
-              <div className="mt-8 rounded-2xl bg-[#F3F6FA] p-6">
-                <p className="text-sm text-slate-500">Why this path fits you</p>
-                <p className="mt-3 text-slate-700">{path.why_it_fits}</p>
-              </div>
+            {path && (
+              <>
+                <p className="text-sm text-slate-500">{path.category || "Path"}</p>
 
-              <div className="mt-8 grid gap-4 md:grid-cols-2">
-                <div className="rounded-xl border border-slate-200 p-4">
-                  <p className="text-sm text-slate-500">Matched status</p>
-                  <p className="mt-2 font-semibold text-[#1F2A44]">
-                    {path.status_target || "—"}
-                  </p>
+                <h1 className="mt-2 text-4xl font-semibold text-[#1F2A44]">
+                  {path.title}
+                </h1>
+
+                <p className="mt-6 text-lg text-slate-600">
+                  {path.short_description}
+                </p>
+
+                <div className="mt-8 rounded-2xl bg-[#F3F6FA] p-6">
+                  <p className="text-sm text-slate-500">Why this path fits you</p>
+                  <p className="mt-3 text-slate-700">{path.why_it_fits}</p>
                 </div>
 
-                <div className="rounded-xl border border-slate-200 p-4">
-                  <p className="text-sm text-slate-500">Matched decision</p>
-                  <p className="mt-2 font-semibold text-[#1F2A44]">
-                    {path.decision_target || "—"}
-                  </p>
+                <div className="mt-8 grid gap-4 md:grid-cols-2">
+                  <div className="rounded-xl border border-slate-200 p-4">
+                    <p className="text-sm text-slate-500">Matched status</p>
+                    <p className="mt-2 font-semibold text-[#1F2A44]">
+                      {path.status_target || "—"}
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl border border-slate-200 p-4">
+                    <p className="text-sm text-slate-500">Matched decision</p>
+                    <p className="mt-2 font-semibold text-[#1F2A44]">
+                      {path.decision_target || "—"}
+                    </p>
+                  </div>
                 </div>
-              </div>
 
-              <div className="mt-8 flex gap-4">
-                <button
-                  onClick={() => router.push("/paths")}
-                  className="rounded-lg border border-slate-300 px-5 py-3 text-slate-700 hover:bg-slate-50"
-                >
-                  Back to paths
-                </button>
+                <div className="mt-10">
+                  <h2 className="text-2xl font-semibold text-[#1F2A44]">
+                    Path journey
+                  </h2>
+                  <p className="mt-2 text-slate-600">
+                    Follow these steps to move from uncertainty to action.
+                  </p>
 
-                <button
-                  onClick={() => router.push("/mentors")}
-                  className="rounded-lg bg-[#1F2A44] px-5 py-3 text-white hover:opacity-90"
-                >
-                  View matching mentors
-                </button>
-              </div>
-            </>
-          )}
+                  {steps.length === 0 ? (
+                    <div className="mt-6 rounded-xl border border-slate-200 p-6">
+                      <p className="text-slate-600">
+                        No path steps available yet for this path.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="mt-6 space-y-4">
+                      {steps.map((step) => (
+                        <div
+                          key={step.id}
+                          className="rounded-xl border border-slate-200 p-5"
+                        >
+                          <p className="text-sm text-slate-500">
+                            Step {step.step_order}
+                          </p>
+                          <h3 className="mt-2 text-xl font-semibold text-[#1F2A44]">
+                            {step.title}
+                          </h3>
+                          {step.description && (
+                            <p className="mt-2 text-slate-600">{step.description}</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-8 flex flex-wrap gap-4">
+                  <button
+                    onClick={handleStartPath}
+                    disabled={startingPath || steps.length === 0}
+                    className="rounded-lg bg-[#1F2A44] px-5 py-3 text-white hover:opacity-90 disabled:opacity-50"
+                  >
+                    {startingPath ? "Starting path..." : "Start this path"}
+                  </button>
+
+                  <button
+                    onClick={() => router.push("/paths")}
+                    className="rounded-lg border border-slate-300 px-5 py-3 text-slate-700 hover:bg-slate-50"
+                  >
+                    Back to paths
+                  </button>
+
+                  <button
+                    onClick={() => router.push("/mentors")}
+                    className="rounded-lg bg-[#1F2A44] px-5 py-3 text-white hover:opacity-90"
+                  >
+                    View matching mentors
+                  </button>
+
+                  <button
+                    onClick={() => router.push("/challenges")}
+                    className="rounded-lg bg-[#1F2A44] px-5 py-3 text-white hover:opacity-90"
+                  >
+                    View your action plan
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </section>
 
