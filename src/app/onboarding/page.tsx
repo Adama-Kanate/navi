@@ -136,6 +136,52 @@ export default function OnboardingPage() {
       return;
     }
 
+    // 1. Delete old tasks for this user
+    const { error: deleteTasksError } = await supabase
+      .from("plan_tasks")
+      .delete()
+      .eq("user_id", user.id);
+
+    if (deleteTasksError) {
+      setError(deleteTasksError.message);
+      setSaving(false);
+      return;
+    }
+
+    // 2. Load matching task templates
+    const { data: templates, error: templatesError } = await supabase
+      .from("task_templates")
+      .select("title, description, week_number")
+      .eq("status_target", currentStatus)
+      .eq("decision_target", targetDecision);
+
+    if (templatesError) {
+      setError(templatesError.message);
+      setSaving(false);
+      return;
+    }
+
+    // 3. Insert generated tasks
+    if (templates && templates.length > 0) {
+      const generatedTasks = templates.map((template) => ({
+        user_id: user.id,
+        title: template.title,
+        description: template.description,
+        week_number: template.week_number,
+        status: "todo",
+      }));
+
+      const { error: insertTasksError } = await supabase
+        .from("plan_tasks")
+        .insert(generatedTasks);
+
+      if (insertTasksError) {
+        setError(insertTasksError.message);
+        setSaving(false);
+        return;
+      }
+    }
+
     setMessage("Profile saved successfully.");
     setSaving(false);
 
