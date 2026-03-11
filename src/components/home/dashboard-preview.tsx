@@ -8,26 +8,26 @@ export function DashboardPreview() {
           </p>
 
           <h2 className="mt-4 text-3xl font-semibold text-[#1F2A44] md:text-4xl">
-            Your roadmap, deadlines, and progress — all in one dashboard
+            Turn uncertainty into a clear plan.
           </h2>
 
           <p className="mt-6 max-w-xl text-lg leading-8 text-slate-600">
-            Track your next steps, monitor deadlines, revisit matched programs,
-            and stay accountable with a simple weekly action plan.
+            Navi organizes your decisions, mentors, and next steps into one simple
+            dashboard.
           </p>
 
           <div className="mt-8 space-y-4 text-slate-600">
-            <div>• Weekly tasks and milestones</div>
-            <div>• Program and application deadline tracking</div>
-            <div>• Mentor and challenge follow-up</div>
+            <div>• Personalized decision roadmap</div>
+            <div>• Weekly action plan</div>
+            <div>• Mentor guidance when needed</div>
           </div>
         </div>
 
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between border-b border-slate-100 pb-4">
             <div>
-              <p className="text-sm text-slate-500">Welcome back</p>
-              <h3 className="text-xl font-semibold text-[#1F2A44]">Alex</h3>
+              <p className="text-sm text-slate-500">Dashboard preview</p>
+              <h3 className="text-xl font-semibold text-[#1F2A44]">Your Navi dashboard</h3>
             </div>
 
             <span className="rounded-full bg-[#DCE6F2] px-3 py-1 text-xs font-medium text-[#1F2A44]">

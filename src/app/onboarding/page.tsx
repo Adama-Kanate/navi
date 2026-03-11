@@ -186,7 +186,7 @@ export default function OnboardingPage() {
     setSaving(false);
 
     setTimeout(() => {
-      router.push("/dashboard");
+      router.push("/decision");
     }, 800);
   }
 

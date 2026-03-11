@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { createClient } from "@/lib/supabase/client";
-import { sameDecision, sameStatus } from "@/lib/matching";
 
 type Profile = {
   id: string;
@@ -22,8 +21,6 @@ type Path = {
   title: string;
   category: string | null;
   short_description: string | null;
-  status_target: string | null;
-  decision_target: string | null;
 };
 
 type Mentor = {
@@ -32,8 +29,6 @@ type Mentor = {
   title: string | null;
   short_bio: string | null;
   booking_url: string | null;
-  expertise_status: string | null;
-  expertise_decision: string | null;
 };
 
 type Task = {
@@ -42,6 +37,11 @@ type Task = {
   description: string | null;
   status: string | null;
   week_number: number | null;
+};
+
+type DecisionAnswer = {
+  dimension: string;
+  answer: string;
 };
 
 export default function DashboardPage() {
@@ -53,6 +53,7 @@ export default function DashboardPage() {
   const [paths, setPaths] = useState<Path[]>([]);
   const [mentors, setMentors] = useState<Mentor[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [answersMap, setAnswersMap] = useState<Record<string, string>>({});
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -85,49 +86,79 @@ export default function DashboardPage() {
 
       setProfile(profileData);
 
-      const { data: pathsData, error: pathsError } = await supabase
-        .from("paths")
-        .select("id, title, category, short_description, status_target, decision_target");
+      const { data: answersData } = await supabase
+        .from("decision_answers")
+        .select("dimension, answer")
+        .eq("user_id", user.id);
 
-      if (pathsError) {
-        setError(pathsError.message);
-        setLoading(false);
-        return;
-      }
-
-      const allPaths = pathsData || [];
-      const statusMatchedPaths = allPaths.filter((path) =>
-        sameStatus(path.status_target, profileData.current_status)
-      );
-      const decisionMatchedPaths = statusMatchedPaths.filter((path) =>
-        sameDecision(path.decision_target, profileData.target_decision)
-      );
-
-      setPaths(decisionMatchedPaths.length > 0 ? decisionMatchedPaths : statusMatchedPaths);
-
-      const { data: mentorsData, error: mentorsError } = await supabase
-        .from("mentors")
-        .select(
-          "id, full_name, title, short_bio, booking_url, expertise_status, expertise_decision"
+      if (answersData) {
+        const map = Object.fromEntries(
+          (answersData as DecisionAnswer[]).map((item) => [item.dimension, item.answer])
         );
-
-      if (mentorsError) {
-        setError(mentorsError.message);
-        setLoading(false);
-        return;
+        setAnswersMap(map);
       }
 
-      const allMentors = mentorsData || [];
-      const statusMatchedMentors = allMentors.filter((mentor) =>
-        sameStatus(mentor.expertise_status, profileData.current_status)
-      );
-      const decisionMatchedMentors = statusMatchedMentors.filter((mentor) =>
-        sameDecision(mentor.expertise_decision, profileData.target_decision)
-      );
+      // Paths: exact match → decision fallback → status fallback
+      let pathsData: Path[] | null = null;
 
-      setMentors(
-        decisionMatchedMentors.length > 0 ? decisionMatchedMentors : statusMatchedMentors
-      );
+      const { data: exactPaths } = await supabase
+        .from("paths")
+        .select("id, title, category, short_description")
+        .eq("status_target", profileData.current_status)
+        .eq("decision_target", profileData.target_decision);
+
+      if (exactPaths && exactPaths.length > 0) {
+        pathsData = exactPaths;
+      } else {
+        const { data: decisionPaths } = await supabase
+          .from("paths")
+          .select("id, title, category, short_description")
+          .eq("decision_target", profileData.target_decision);
+
+        if (decisionPaths && decisionPaths.length > 0) {
+          pathsData = decisionPaths;
+        } else {
+          const { data: statusPaths } = await supabase
+            .from("paths")
+            .select("id, title, category, short_description")
+            .eq("status_target", profileData.current_status);
+
+          pathsData = statusPaths || [];
+        }
+      }
+
+      setPaths(pathsData || []);
+
+      // Mentors: exact match → decision fallback → status fallback
+      let mentorsData: Mentor[] | null = null;
+
+      const { data: exactMentors } = await supabase
+        .from("mentors")
+        .select("id, full_name, title, short_bio, booking_url")
+        .eq("expertise_status", profileData.current_status)
+        .eq("expertise_decision", profileData.target_decision);
+
+      if (exactMentors && exactMentors.length > 0) {
+        mentorsData = exactMentors;
+      } else {
+        const { data: decisionMentors } = await supabase
+          .from("mentors")
+          .select("id, full_name, title, short_bio, booking_url")
+          .eq("expertise_decision", profileData.target_decision);
+
+        if (decisionMentors && decisionMentors.length > 0) {
+          mentorsData = decisionMentors;
+        } else {
+          const { data: statusMentors } = await supabase
+            .from("mentors")
+            .select("id, full_name, title, short_bio, booking_url")
+            .eq("expertise_status", profileData.current_status);
+
+          mentorsData = statusMentors || [];
+        }
+      }
+
+      setMentors(mentorsData || []);
 
       const { data: tasksData, error: tasksError } = await supabase
         .from("plan_tasks")
@@ -148,37 +179,6 @@ export default function DashboardPage() {
     loadDashboard();
   }, [router, supabase]);
 
-  function getSuggestedNextStep() {
-    if (!profile) return "Complete your profile to unlock your next steps.";
-
-    if (profile.target_decision === "Choose an internship") {
-      return "Shortlist 3 internship targets and prepare one tailored application this week.";
-    }
-
-    if (profile.target_decision === "Choose a master's program") {
-      return "Compare 3 programs, review deadlines, and note the required documents.";
-    }
-
-    if (profile.target_decision === "Choose a first job") {
-      return "Clarify 2 target roles and identify the skills and experiences each one requires.";
-    }
-
-    if (profile.target_decision === "Switch careers") {
-      return "Define one realistic transition path and validate it with a small practical test.";
-    }
-
-    if (profile.target_decision === "Choose post-secondary options") {
-      return "Build a shortlist of post-secondary options that match your strengths and constraints.";
-    }
-
-    return "Identify one realistic path and break it into small actions for the next 7 days.";
-  }
-
-  const totalTasks = tasks.length;
-  const completedTasks = tasks.filter((task) => task.status === "done").length;
-  const progressPercentage =
-    totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
-
   async function toggleTaskStatus(taskId: string, currentStatus: string | null) {
     const nextStatus = currentStatus === "done" ? "todo" : "done";
 
@@ -189,12 +189,81 @@ export default function DashboardPage() {
 
     if (!error) {
       setTasks((prev) =>
-        prev.map((currentTask) =>
-          currentTask.id === taskId ? { ...currentTask, status: nextStatus } : currentTask
+        prev.map((task) =>
+          task.id === taskId ? { ...task, status: nextStatus } : task
         )
       );
     }
   }
+
+  function getSuggestedNextStep() {
+    if (!profile) return "Complete your profile to unlock your next steps.";
+
+    const interest = answersMap.interest;
+    const priority = answersMap.priority;
+    const environment = answersMap.environment;
+    const risk = answersMap.risk;
+
+    if (profile.target_decision === "Choose a first job") {
+      if (interest === "analytical") {
+        return "Identify 2 analytical roles and compare the skills they require.";
+      }
+      if (interest === "people-focused") {
+        return "Compare 2 people-oriented roles and speak with one professional in that area.";
+      }
+      if (priority === "stability") {
+        return "Focus on stable first-job options and compare their entry requirements.";
+      }
+      return "Clarify 2 target roles and identify the skills and experiences each one requires.";
+    }
+
+    if (profile.target_decision === "Choose an internship") {
+      if (interest === "technical") {
+        return "Shortlist 3 technical internships and prepare one tailored application this week.";
+      }
+      return "Shortlist 3 internship targets and prepare one tailored application this week.";
+    }
+
+    if (profile.target_decision === "Choose a master's program") {
+      if (priority === "learning") {
+        return "Compare 3 master's programs with strong learning outcomes and note their deadlines.";
+      }
+      return "Compare 3 programs, review deadlines, and note the required documents.";
+    }
+
+    if (profile.target_decision === "Switch careers") {
+      if (risk === "low") {
+        return "Define one low-risk transition path and test it with one small practical step.";
+      }
+      return "Define one realistic transition path and validate it with a small practical test.";
+    }
+
+    if (profile.target_decision === "Choose post-secondary options") {
+      if (environment === "academic") {
+        return "Compare 3 academically strong post-secondary options that fit your constraints.";
+      }
+      return "Build a shortlist of post-secondary options that match your strengths and constraints.";
+    }
+
+    if (profile.target_decision === "Build confidence in one direction") {
+      return "Choose one realistic direction and test it through one simple discussion or activity.";
+    }
+
+    if (profile.target_decision === "Explore career interests") {
+      return "Write down 3 interests and connect each one to a possible study or career direction.";
+    }
+
+    if (profile.target_decision === "Choose a study track") {
+      return "Compare your available study tracks and ask one trusted adult for feedback.";
+    }
+
+    return "Identify one realistic path and break it into small actions for the next 7 days.";
+  }
+
+  const totalTasks = tasks.length;
+  const completedTasks = tasks.filter((task) => task.status === "done").length;
+  const progressPercentage =
+    totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
   if (loading) {
     return (
