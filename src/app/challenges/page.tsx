@@ -52,18 +52,18 @@ export default function ChallengesPage() {
     loadTasks();
   }, [router, supabase]);
 
-  async function toggleTaskStatus(task: Task) {
-    const nextStatus = task.status === "done" ? "todo" : "done";
+  async function toggleTaskStatus(taskId: string, currentStatus: string | null) {
+    const nextStatus = currentStatus === "done" ? "todo" : "done";
 
     const { error } = await supabase
       .from("plan_tasks")
       .update({ status: nextStatus })
-      .eq("id", task.id);
+      .eq("id", taskId);
 
     if (!error) {
       setTasks((prev) =>
         prev.map((currentTask) =>
-          currentTask.id === task.id ? { ...currentTask, status: nextStatus } : currentTask
+          currentTask.id === taskId ? { ...currentTask, status: nextStatus } : currentTask
         )
       );
     }
@@ -119,16 +119,22 @@ export default function ChallengesPage() {
                   {task.description && (
                     <p className="mt-3 text-slate-600">{task.description}</p>
                   )}
-                  <div className="mt-4 flex items-center justify-end gap-3">
-                    {(task.status || "todo") === "done" && (
-                      <span className="text-sm font-medium text-green-600">✓ Completed</span>
+                  <div className="mt-4 flex items-center justify-end">
+                    {task.status !== "done" ? (
+                      <button
+                        onClick={() => toggleTaskStatus(task.id, task.status)}
+                        className="mt-4 rounded-lg bg-[#1F2A44] px-4 py-2 text-white hover:opacity-90"
+                      >
+                        Mark as done
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => toggleTaskStatus(task.id, task.status)}
+                        className="mt-4 rounded-lg border border-slate-300 px-4 py-2 text-slate-700 hover:bg-slate-50"
+                      >
+                        Mark as todo
+                      </button>
                     )}
-                    <button
-                      onClick={() => toggleTaskStatus(task)}
-                      className="rounded-lg bg-gray-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-gray-700"
-                    >
-                      {(task.status || "todo") === "done" ? "Mark as todo" : "Mark as done"}
-                    </button>
                   </div>
                 </div>
               ))}

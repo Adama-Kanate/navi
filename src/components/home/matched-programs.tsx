@@ -3,11 +3,11 @@ export function MatchedPrograms() {
     <section className="bg-[#FAFAFA] px-6 py-24">
       <div className="mx-auto max-w-6xl">
         <p className="text-center text-sm font-medium uppercase tracking-wide text-[#7FB7D8]">
-          Matched Programs
+          Example Matches
         </p>
 
         <h2 className="mt-4 text-center text-3xl font-semibold text-[#1F2A44] md:text-4xl">
-          Programs matched to your profile
+          Example matches for your profile
         </h2>
 
         <div className="mt-10 flex flex-wrap justify-center gap-3">
@@ -76,7 +76,7 @@ export function MatchedPrograms() {
             </p>
 
             <button className="mt-6 rounded-xl bg-[#1F2A44] px-5 py-3 text-sm font-medium text-white hover:opacity-90">
-              View & Apply →
+              See example matches →
             </button>
           </div>
 
@@ -111,7 +111,7 @@ export function MatchedPrograms() {
             </p>
 
             <button className="mt-6 rounded-xl bg-[#1F2A44] px-5 py-3 text-sm font-medium text-white hover:opacity-90">
-              View & Apply →
+              See example matches →
             </button>
           </div>
 
@@ -146,7 +146,7 @@ export function MatchedPrograms() {
             </p>
 
             <button className="mt-6 rounded-xl bg-[#1F2A44] px-5 py-3 text-sm font-medium text-white hover:opacity-90">
-              View & Apply →
+              See example matches →
             </button>
           </div>
 
@@ -181,7 +181,7 @@ export function MatchedPrograms() {
             </p>
 
             <button className="mt-6 rounded-xl bg-[#1F2A44] px-5 py-3 text-sm font-medium text-white hover:opacity-90">
-              View & Apply →
+              See example matches →
             </button>
           </div>
         </div>

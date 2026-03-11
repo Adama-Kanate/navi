@@ -179,18 +179,18 @@ export default function DashboardPage() {
   const progressPercentage =
     totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
-  async function toggleTaskStatus(task: Task) {
-    const nextStatus = task.status === "done" ? "todo" : "done";
+  async function toggleTaskStatus(taskId: string, currentStatus: string | null) {
+    const nextStatus = currentStatus === "done" ? "todo" : "done";
 
     const { error } = await supabase
       .from("plan_tasks")
       .update({ status: nextStatus })
-      .eq("id", task.id);
+      .eq("id", taskId);
 
     if (!error) {
       setTasks((prev) =>
         prev.map((currentTask) =>
-          currentTask.id === task.id ? { ...currentTask, status: nextStatus } : currentTask
+          currentTask.id === taskId ? { ...currentTask, status: nextStatus } : currentTask
         )
       );
     }
@@ -409,16 +409,21 @@ export default function DashboardPage() {
                         <p className="mt-2 text-sm text-slate-600">{task.description}</p>
                       )}
 
-                      {task.status === "done" && (
-                        <p className="mt-4 font-medium text-green-600">✓ Completed</p>
+                      {task.status !== "done" ? (
+                        <button
+                          onClick={() => toggleTaskStatus(task.id, task.status)}
+                          className="mt-4 rounded-lg bg-[#1F2A44] px-4 py-2 text-white hover:opacity-90"
+                        >
+                          Mark as done
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => toggleTaskStatus(task.id, task.status)}
+                          className="mt-4 rounded-lg border border-slate-300 px-4 py-2 text-slate-700 hover:bg-slate-50"
+                        >
+                          Mark as todo
+                        </button>
                       )}
-
-                      <button
-                        onClick={() => toggleTaskStatus(task)}
-                        className="mt-4 rounded-lg bg-[#1F2A44] px-4 py-2 text-white hover:opacity-90"
-                      >
-                        {task.status === "done" ? "Mark as todo" : "Mark as done"}
-                      </button>
                     </div>
                   ))}
                 </div>

@@ -121,7 +121,11 @@ export default function PathsPage() {
           ) : (
             <div className="mt-10 grid gap-6 md:grid-cols-2">
               {paths.map((path) => (
-                <div key={path.id} className="rounded-2xl bg-white p-6 shadow-sm">
+                <button
+                  key={path.id}
+                  onClick={() => router.push(`/paths/${path.id}`)}
+                  className="rounded-2xl bg-white p-6 shadow-sm text-left transition hover:-translate-y-0.5 hover:shadow-md"
+                >
                   <p className="text-sm text-slate-500">{path.category || "Path"}</p>
                   <h2 className="mt-2 text-2xl font-semibold text-[#1F2A44]">
                     {path.title}
@@ -132,7 +136,7 @@ export default function PathsPage() {
                     <p className="text-sm text-slate-500">Why it fits</p>
                     <p className="mt-2 text-slate-700">{path.why_it_fits}</p>
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           )}
