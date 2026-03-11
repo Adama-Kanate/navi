@@ -23,6 +23,13 @@ type Path = {
   short_description: string | null;
 };
 
+type ActivePath = {
+  id: string;
+  title: string;
+  category: string | null;
+  short_description: string | null;
+};
+
 type Mentor = {
   id: string;
   full_name: string;
@@ -53,6 +60,7 @@ export default function DashboardPage() {
   const [paths, setPaths] = useState<Path[]>([]);
   const [mentors, setMentors] = useState<Mentor[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [activePath, setActivePath] = useState<ActivePath | null>(null);
   const [answersMap, setAnswersMap] = useState<Record<string, string>>({});
   const [error, setError] = useState("");
 
@@ -85,6 +93,24 @@ export default function DashboardPage() {
       }
 
       setProfile(profileData);
+
+      const { data: activePathRow } = await supabase
+        .from("user_active_paths")
+        .select("path_id")
+        .eq("user_id", user.id)
+        .single();
+
+      if (activePathRow?.path_id) {
+        const { data: activePathData } = await supabase
+          .from("paths")
+          .select("id, title, category, short_description")
+          .eq("id", activePathRow.path_id)
+          .single();
+
+        if (activePathData) {
+          setActivePath(activePathData);
+        }
+      }
 
       const { data: answersData } = await supabase
         .from("decision_answers")
@@ -371,6 +397,33 @@ export default function DashboardPage() {
               <p className="mt-3 text-sm text-slate-600">
                 {completedTasks} of {totalTasks} task{totalTasks > 1 ? "s" : ""} completed
               </p>
+            </div>
+
+            <div className="mt-6 rounded-2xl border border-slate-200 p-6">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm text-slate-500">Current path</p>
+                  <h2 className="mt-2 text-2xl font-semibold text-[#1F2A44]">
+                    {activePath ? activePath.title : "No active path yet"}
+                  </h2>
+                </div>
+
+                {activePath && (
+                  <button
+                    onClick={() => router.push(`/paths/${activePath.id}`)}
+                    className="rounded-lg bg-[#1F2A44] px-5 py-3 text-white hover:opacity-90"
+                  >
+                    Resume this path
+                  </button>
+                )}
+              </div>
+
+              {activePath && (
+                <div className="mt-4 rounded-xl bg-[#F3F6FA] p-4">
+                  <p className="text-sm text-slate-500">{activePath.category || "Path"}</p>
+                  <p className="mt-2 text-slate-700">{activePath.short_description}</p>
+                </div>
+              )}
             </div>
 
             <div className="mt-6 rounded-2xl border border-slate-200 p-6">

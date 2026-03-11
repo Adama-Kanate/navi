@@ -127,8 +127,21 @@ export default function PathDetailPage() {
       return;
     }
 
+    const { error: activePathError } = await supabase
+      .from("user_active_paths")
+      .upsert({
+        user_id: user.id,
+        path_id: path.id,
+      });
+
+    if (activePathError) {
+      setError(activePathError.message);
+      setStartingPath(false);
+      return;
+    }
+
     setStartingPath(false);
-    router.push("/challenges");
+    router.push("/dashboard");
   }
 
   if (loading) {
@@ -233,7 +246,7 @@ export default function PathDetailPage() {
                     disabled={startingPath || steps.length === 0}
                     className="rounded-lg bg-[#1F2A44] px-5 py-3 text-white hover:opacity-90 disabled:opacity-50"
                   >
-                    {startingPath ? "Starting path..." : "Start this path"}
+                    {startingPath ? "Choosing path..." : "Choose this path"}
                   </button>
 
                   <button
@@ -254,7 +267,7 @@ export default function PathDetailPage() {
                     onClick={() => router.push("/challenges")}
                     className="rounded-lg bg-[#1F2A44] px-5 py-3 text-white hover:opacity-90"
                   >
-                    View your action plan
+                    Open my action plan
                   </button>
                 </div>
               </>
