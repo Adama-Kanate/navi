@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { createClient } from "@/lib/supabase/client";
+import { sameDecision, sameStatus } from "@/lib/matching";
 
 type Profile = {
   id: string;
@@ -54,9 +55,7 @@ export default function PathsPage() {
 
       const { data, error } = await supabase
         .from("paths")
-        .select("*")
-        .eq("status_target", profile.current_status)
-        .eq("decision_target", profile.target_decision);
+        .select("*");
 
       if (error) {
         setError(error.message);
@@ -64,7 +63,15 @@ export default function PathsPage() {
         return;
       }
 
-      setPaths(data || []);
+      const allPaths = data || [];
+      const statusMatchedPaths = allPaths.filter((path) =>
+        sameStatus(path.status_target, profile.current_status)
+      );
+      const decisionMatchedPaths = statusMatchedPaths.filter((path) =>
+        sameDecision(path.decision_target, profile.target_decision)
+      );
+
+      setPaths(decisionMatchedPaths.length > 0 ? decisionMatchedPaths : statusMatchedPaths);
       setLoading(false);
     }
 

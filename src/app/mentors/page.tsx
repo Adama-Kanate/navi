@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { createClient } from "@/lib/supabase/client";
+import { sameDecision, sameStatus } from "@/lib/matching";
 
 type Mentor = {
   id: string;
@@ -12,6 +13,8 @@ type Mentor = {
   title: string | null;
   short_bio: string | null;
   booking_url: string | null;
+  expertise_status: string | null;
+  expertise_decision: string | null;
 };
 
 export default function MentorsPage() {
@@ -46,9 +49,7 @@ export default function MentorsPage() {
 
       const { data, error } = await supabase
         .from("mentors")
-        .select("*")
-        .eq("expertise_status", profile.current_status)
-        .eq("expertise_decision", profile.target_decision);
+        .select("*");
 
       if (error) {
         setError(error.message);
@@ -56,7 +57,17 @@ export default function MentorsPage() {
         return;
       }
 
-      setMentors(data || []);
+      const allMentors = data || [];
+      const statusMatchedMentors = allMentors.filter((mentor) =>
+        sameStatus(mentor.expertise_status, profile.current_status)
+      );
+      const decisionMatchedMentors = statusMatchedMentors.filter((mentor) =>
+        sameDecision(mentor.expertise_decision, profile.target_decision)
+      );
+
+      setMentors(
+        decisionMatchedMentors.length > 0 ? decisionMatchedMentors : statusMatchedMentors
+      );
       setLoading(false);
     }
 

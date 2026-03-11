@@ -52,16 +52,18 @@ export default function ChallengesPage() {
     loadTasks();
   }, [router, supabase]);
 
-  async function markTaskDone(taskId: string) {
+  async function toggleTaskStatus(task: Task) {
+    const nextStatus = task.status === "done" ? "todo" : "done";
+
     const { error } = await supabase
       .from("plan_tasks")
-      .update({ status: "done" })
-      .eq("id", taskId);
+      .update({ status: nextStatus })
+      .eq("id", task.id);
 
     if (!error) {
       setTasks((prev) =>
-        prev.map((task) =>
-          task.id === taskId ? { ...task, status: "done" } : task
+        prev.map((currentTask) =>
+          currentTask.id === task.id ? { ...currentTask, status: nextStatus } : currentTask
         )
       );
     }
@@ -117,17 +119,16 @@ export default function ChallengesPage() {
                   {task.description && (
                     <p className="mt-3 text-slate-600">{task.description}</p>
                   )}
-                  <div className="mt-4 flex items-center justify-end">
-                    {(task.status || "todo") !== "done" ? (
-                      <button
-                        onClick={() => markTaskDone(task.id)}
-                        className="rounded-lg bg-gray-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-gray-700"
-                      >
-                        Mark as done
-                      </button>
-                    ) : (
+                  <div className="mt-4 flex items-center justify-end gap-3">
+                    {(task.status || "todo") === "done" && (
                       <span className="text-sm font-medium text-green-600">✓ Completed</span>
                     )}
+                    <button
+                      onClick={() => toggleTaskStatus(task)}
+                      className="rounded-lg bg-gray-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-gray-700"
+                    >
+                      {(task.status || "todo") === "done" ? "Mark as todo" : "Mark as done"}
+                    </button>
                   </div>
                 </div>
               ))}

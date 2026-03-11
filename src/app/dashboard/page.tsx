@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { createClient } from "@/lib/supabase/client";
+import { sameDecision, sameStatus } from "@/lib/matching";
 
 type Profile = {
   id: string;
@@ -21,6 +22,8 @@ type Path = {
   title: string;
   category: string | null;
   short_description: string | null;
+  status_target: string | null;
+  decision_target: string | null;
 };
 
 type Mentor = {
@@ -29,6 +32,8 @@ type Mentor = {
   title: string | null;
   short_bio: string | null;
   booking_url: string | null;
+  expertise_status: string | null;
+  expertise_decision: string | null;
 };
 
 type Task = {
@@ -82,9 +87,7 @@ export default function DashboardPage() {
 
       const { data: pathsData, error: pathsError } = await supabase
         .from("paths")
-        .select("id, title, category, short_description")
-        .eq("status_target", profileData.current_status)
-        .eq("decision_target", profileData.target_decision);
+        .select("id, title, category, short_description, status_target, decision_target");
 
       if (pathsError) {
         setError(pathsError.message);
@@ -92,13 +95,21 @@ export default function DashboardPage() {
         return;
       }
 
-      setPaths(pathsData || []);
+      const allPaths = pathsData || [];
+      const statusMatchedPaths = allPaths.filter((path) =>
+        sameStatus(path.status_target, profileData.current_status)
+      );
+      const decisionMatchedPaths = statusMatchedPaths.filter((path) =>
+        sameDecision(path.decision_target, profileData.target_decision)
+      );
+
+      setPaths(decisionMatchedPaths.length > 0 ? decisionMatchedPaths : statusMatchedPaths);
 
       const { data: mentorsData, error: mentorsError } = await supabase
         .from("mentors")
-        .select("id, full_name, title, short_bio, booking_url")
-        .eq("expertise_status", profileData.current_status)
-        .eq("expertise_decision", profileData.target_decision);
+        .select(
+          "id, full_name, title, short_bio, booking_url, expertise_status, expertise_decision"
+        );
 
       if (mentorsError) {
         setError(mentorsError.message);
@@ -106,7 +117,17 @@ export default function DashboardPage() {
         return;
       }
 
-      setMentors(mentorsData || []);
+      const allMentors = mentorsData || [];
+      const statusMatchedMentors = allMentors.filter((mentor) =>
+        sameStatus(mentor.expertise_status, profileData.current_status)
+      );
+      const decisionMatchedMentors = statusMatchedMentors.filter((mentor) =>
+        sameDecision(mentor.expertise_decision, profileData.target_decision)
+      );
+
+      setMentors(
+        decisionMatchedMentors.length > 0 ? decisionMatchedMentors : statusMatchedMentors
+      );
 
       const { data: tasksData, error: tasksError } = await supabase
         .from("plan_tasks")
@@ -158,16 +179,18 @@ export default function DashboardPage() {
   const progressPercentage =
     totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
-  async function markTaskDone(taskId: string) {
+  async function toggleTaskStatus(task: Task) {
+    const nextStatus = task.status === "done" ? "todo" : "done";
+
     const { error } = await supabase
       .from("plan_tasks")
-      .update({ status: "done" })
-      .eq("id", taskId);
+      .update({ status: nextStatus })
+      .eq("id", task.id);
 
     if (!error) {
       setTasks((prev) =>
-        prev.map((task) =>
-          task.id === taskId ? { ...task, status: "done" } : task
+        prev.map((currentTask) =>
+          currentTask.id === task.id ? { ...currentTask, status: nextStatus } : currentTask
         )
       );
     }
@@ -386,16 +409,16 @@ export default function DashboardPage() {
                         <p className="mt-2 text-sm text-slate-600">{task.description}</p>
                       )}
 
-                      {task.status !== "done" ? (
-                        <button
-                          onClick={() => markTaskDone(task.id)}
-                          className="mt-4 rounded-lg bg-[#1F2A44] px-4 py-2 text-white hover:opacity-90"
-                        >
-                          Mark as done
-                        </button>
-                      ) : (
+                      {task.status === "done" && (
                         <p className="mt-4 font-medium text-green-600">✓ Completed</p>
                       )}
+
+                      <button
+                        onClick={() => toggleTaskStatus(task)}
+                        className="mt-4 rounded-lg bg-[#1F2A44] px-4 py-2 text-white hover:opacity-90"
+                      >
+                        {task.status === "done" ? "Mark as todo" : "Mark as done"}
+                      </button>
                     </div>
                   ))}
                 </div>
