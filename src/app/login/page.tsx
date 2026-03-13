@@ -12,13 +12,17 @@ export default function LoginPage() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
 
   const [loading, setLoading] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
+  const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
+    setMessage("");
     setError("");
 
     const { error } = await supabase.auth.signInWithPassword({
@@ -34,6 +38,31 @@ export default function LoginPage() {
 
     setLoading(false);
     router.push("/onboarding");
+  }
+
+  async function handleForgotPassword() {
+    setResetLoading(true);
+    setMessage("");
+    setError("");
+
+    if (!email) {
+      setError("Please enter your email first.");
+      setResetLoading(false);
+      return;
+    }
+
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: "https://navi-amber.vercel.app/reset-password",
+    });
+
+    if (resetError) {
+      setError(resetError.message);
+      setResetLoading(false);
+      return;
+    }
+
+    setMessage("Check your email for a password reset link.");
+    setResetLoading(false);
   }
 
   return (
@@ -66,6 +95,30 @@ export default function LoginPage() {
             />
 
             <button
+              type="button"
+              onClick={() => setShowForgotPassword((prev) => !prev)}
+              className="self-start text-sm text-slate-600 hover:underline"
+            >
+              Forgot password?
+            </button>
+
+            {showForgotPassword && (
+              <div className="rounded-lg border border-slate-200 bg-[#F3F6FA] p-4">
+                <p className="text-sm text-slate-600">
+                  Enter your email and we will send you a reset link.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleForgotPassword}
+                  disabled={resetLoading}
+                  className="mt-3 rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                >
+                  {resetLoading ? "Sending..." : "Send reset link"}
+                </button>
+              </div>
+            )}
+
+            <button
               type="submit"
               disabled={loading}
               className="mt-2 rounded-lg bg-[#1F2A44] px-4 py-3 text-white hover:opacity-90 disabled:opacity-50"
@@ -73,6 +126,12 @@ export default function LoginPage() {
               {loading ? "Logging in..." : "Log in"}
             </button>
           </form>
+
+          {message && (
+            <p className="mt-4 rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700">
+              {message}
+            </p>
+          )}
 
           {error && (
             <p className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
