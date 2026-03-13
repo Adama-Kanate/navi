@@ -98,6 +98,13 @@ export default function PathsPage() {
 
       <section className="px-6 py-20">
         <div className="mx-auto max-w-6xl">
+          <button
+            onClick={() => router.push("/dashboard")}
+            className="mb-6 text-sm text-slate-600 hover:underline"
+          >
+            ← Back to dashboard
+          </button>
+
           <h1 className="text-4xl font-semibold text-[#1F2A44]">
             Your suggested paths
           </h1>

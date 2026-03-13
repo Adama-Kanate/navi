@@ -14,7 +14,7 @@ type Task = {
   week_number: number | null;
 };
 
-export default function ChallengesPage() {
+export default function PlanPage() {
   const supabase = createClient();
   const router = useRouter();
 
@@ -93,7 +93,7 @@ export default function ChallengesPage() {
             Your action plan
           </h1>
           <p className="mt-3 text-lg text-slate-600">
-            These are your current tasks for moving forward with clarity.
+            Follow these steps to move forward on your current path.
           </p>
 
           {error && (

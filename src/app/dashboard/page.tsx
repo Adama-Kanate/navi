@@ -51,6 +51,11 @@ type DecisionAnswer = {
   answer: string;
 };
 
+type PathStep = {
+  id: string;
+  step_order: number;
+};
+
 export default function DashboardPage() {
   const supabase = createClient();
   const router = useRouter();
@@ -61,6 +66,7 @@ export default function DashboardPage() {
   const [mentors, setMentors] = useState<Mentor[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [activePath, setActivePath] = useState<ActivePath | null>(null);
+  const [pathSteps, setPathSteps] = useState<PathStep[]>([]);
   const [answersMap, setAnswersMap] = useState<Record<string, string>>({});
   const [error, setError] = useState("");
 
@@ -110,6 +116,13 @@ export default function DashboardPage() {
         if (activePathData) {
           setActivePath(activePathData);
         }
+
+        const { data: stepsData } = await supabase
+          .from("path_steps")
+          .select("id, step_order")
+          .eq("path_id", activePathRow.path_id);
+
+        setPathSteps(stepsData || []);
       }
 
       const { data: answersData } = await supabase
@@ -291,6 +304,14 @@ export default function DashboardPage() {
   const progressPercentage =
     totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
+  const stepOrders = new Set(pathSteps.map((s) => s.step_order));
+  const totalSteps = pathSteps.length;
+  const completedSteps = tasks.filter(
+    (t) => t.status === "done" && t.week_number !== null && stepOrders.has(t.week_number)
+  ).length;
+  const stepProgressPercentage =
+    totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0;
+
   if (loading) {
     return (
       <main className="min-h-screen bg-[#FAFAFA]">
@@ -408,12 +429,19 @@ export default function DashboardPage() {
                   </h2>
                 </div>
 
-                {activePath && (
+                {activePath ? (
                   <button
                     onClick={() => router.push(`/paths/${activePath.id}`)}
                     className="rounded-lg bg-[#1F2A44] px-5 py-3 text-white hover:opacity-90"
                   >
                     Resume this path
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => router.push("/paths")}
+                    className="rounded-lg bg-[#1F2A44] px-5 py-3 text-white hover:opacity-90"
+                  >
+                    Explore paths
                   </button>
                 )}
               </div>
@@ -422,6 +450,23 @@ export default function DashboardPage() {
                 <div className="mt-4 rounded-xl bg-[#F3F6FA] p-4">
                   <p className="text-sm text-slate-500">{activePath.category || "Path"}</p>
                   <p className="mt-2 text-slate-700">{activePath.short_description}</p>
+
+                  {totalSteps > 0 && (
+                    <div className="mt-4">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm text-slate-500">
+                          {completedSteps} / {totalSteps} steps completed
+                        </p>
+                        <p className="text-sm font-semibold text-[#1F2A44]">{stepProgressPercentage}%</p>
+                      </div>
+                      <div className="mt-2 h-2 w-full rounded-full bg-slate-200">
+                        <div
+                          className="h-2 rounded-full bg-[#1F2A44] transition-all"
+                          style={{ width: `${stepProgressPercentage}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -508,7 +553,7 @@ export default function DashboardPage() {
                 </div>
 
                 <button
-                  onClick={() => router.push("/challenges")}
+                  onClick={() => router.push("/plan")}
                   className="rounded-lg bg-[#1F2A44] px-5 py-3 text-white hover:opacity-90"
                 >
                   View tasks

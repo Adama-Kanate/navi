@@ -46,26 +46,40 @@ export function Navbar() {
 				</Link>
 
 				<div className="flex items-center gap-4 sm:gap-6">
-					<Link href="/how-it-works" className="text-sm text-gray-600 hover:text-black">
-						How it works
-					</Link>
-
 					{isLoggedIn ? (
-						<button onClick={handleLogout} className="text-sm text-gray-600 hover:text-black">
-							Log out
-						</button>
+						<>
+							<Link href="/dashboard" className="text-sm text-gray-600 hover:text-black">
+								Dashboard
+							</Link>
+							<Link href="/paths" className="text-sm text-gray-600 hover:text-black">
+								Paths
+							</Link>
+							<Link href="/mentors" className="text-sm text-gray-600 hover:text-black">
+								Mentors
+							</Link>
+							<Link href="/plan" className="text-sm text-gray-600 hover:text-black">
+								My action plan
+							</Link>
+							<button onClick={handleLogout} className="text-sm text-gray-600 hover:text-black">
+								Log out
+							</button>
+						</>
 					) : (
-						<Link href="/login" className="text-sm text-gray-600 hover:text-black">
-							Log in
-						</Link>
+						<>
+							<Link href="/how-it-works" className="text-sm text-gray-600 hover:text-black">
+								How it works
+							</Link>
+							<Link href="/login" className="text-sm text-gray-600 hover:text-black">
+								Log in
+							</Link>
+							<Link
+								href="/signup"
+								className="rounded-xl bg-[#1F2A44] px-5 py-2.5 text-sm font-medium text-white transition hover:opacity-90"
+							>
+								Build my plan →
+							</Link>
+						</>
 					)}
-
-					<Link
-						href="/signup"
-						className="rounded-xl bg-[#1F2A44] px-5 py-2.5 text-sm font-medium text-white transition hover:opacity-90"
-					>
-						Build My Plan →
-					</Link>
 				</div>
 			</div>
 		</nav>
