@@ -51,8 +51,10 @@ export default function LoginPage() {
       return;
     }
 
+    const redirectTo = `${window.location.origin}/reset-password`;
+
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: "https://navi-amber.vercel.app/reset-password",
+      redirectTo,
     });
 
     if (resetError) {

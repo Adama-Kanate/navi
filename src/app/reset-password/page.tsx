@@ -40,6 +40,7 @@ function ResetPasswordContent() {
   const [isExchangingCode, setIsExchangingCode] = useState(true);
   const [isReady, setIsReady] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [info, setInfo] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const hasAttemptedExchange = useRef(false);
@@ -51,13 +52,14 @@ function ResetPasswordContent() {
 
       setIsExchangingCode(true);
       setIsReady(false);
+      setInfo("");
       setError("");
       setSuccess("");
 
       const code = searchParams.get("code");
 
       if (!code) {
-        setError("This password reset link is invalid or expired.");
+        setInfo("Open the password reset link from your email to continue.");
         setIsExchangingCode(false);
         return;
       }
@@ -68,6 +70,16 @@ function ResetPasswordContent() {
       } = await supabase.auth.exchangeCodeForSession(code);
 
       if (exchangeError || !session) {
+        const {
+          data: { session: fallbackSession },
+        } = await supabase.auth.getSession();
+
+        if (fallbackSession) {
+          setIsReady(true);
+          setIsExchangingCode(false);
+          return;
+        }
+
         setError("This password reset link is invalid or expired.");
         setIsExchangingCode(false);
         return;
@@ -87,7 +99,7 @@ function ResetPasswordContent() {
     setError("");
 
     if (!isReady) {
-      setError("This password reset link is invalid or expired.");
+      setError("Open the password reset link from your email to continue.");
       setIsSubmitting(false);
       return;
     }
@@ -135,6 +147,10 @@ function ResetPasswordContent() {
             <p className="mt-4 rounded-lg bg-slate-100 px-4 py-3 text-sm text-slate-700">
               Preparing your password reset...
             </p>
+          )}
+
+          {!isExchangingCode && info && (
+            <p className="mt-4 rounded-lg bg-slate-100 px-4 py-3 text-sm text-slate-700">{info}</p>
           )}
 
           <form onSubmit={handleUpdatePassword} className="mt-6 flex flex-col gap-4">
