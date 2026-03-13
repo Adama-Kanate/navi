@@ -28,6 +28,14 @@ type PlanTask = {
   status: string | null;
 };
 
+function normalizeTaskStatus(status: string | null) {
+  return (status || "").trim().toLowerCase().replace(/\s+/g, "");
+}
+
+function isDoneStatus(status: string | null) {
+  return normalizeTaskStatus(status) === "done";
+}
+
 export default function PathDetailPage() {
   const supabase = createClient();
   const router = useRouter();
@@ -38,6 +46,7 @@ export default function PathDetailPage() {
   const [path, setPath] = useState<Path | null>(null);
   const [steps, setSteps] = useState<PathStep[]>([]);
   const [planTasks, setPlanTasks] = useState<PlanTask[]>([]);
+  const [isCurrentPath, setIsCurrentPath] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -50,6 +59,14 @@ export default function PathDetailPage() {
         router.push("/login");
         return;
       }
+
+      const { data: activePathRow } = await supabase
+        .from("user_active_paths")
+        .select("path_id")
+        .eq("user_id", user.id)
+        .single();
+
+      setIsCurrentPath(activePathRow?.path_id === params.id);
 
       const { data: pathData, error: pathError } = await supabase
         .from("paths")
@@ -198,6 +215,12 @@ export default function PathDetailPage() {
               <>
                 <p className="text-sm text-slate-500">{path.category || "Path"}</p>
 
+                {isCurrentPath && (
+                  <p className="mt-2 inline-block rounded-full bg-[#DCE6F2] px-3 py-1 text-xs font-medium text-[#1F2A44]">
+                    Current path
+                  </p>
+                )}
+
                 <h1 className="mt-2 text-4xl font-semibold text-[#1F2A44]">
                   {path.title}
                 </h1>
@@ -238,7 +261,7 @@ export default function PathDetailPage() {
                   {steps.length > 0 && (() => {
                     const doneWeeks = new Set(
                       planTasks
-                        .filter((t) => t.status === "done" && t.week_number !== null)
+                        .filter((t) => isDoneStatus(t.status) && t.week_number !== null)
                         .map((t) => t.week_number as number)
                     );
                     const totalSteps = steps.length;
@@ -273,7 +296,7 @@ export default function PathDetailPage() {
                     <div className="mt-6 space-y-4">
                       {steps.map((step) => {
                         const isDone = planTasks.some(
-                          (t) => t.week_number === step.step_order && t.status === "done"
+                          (t) => t.week_number === step.step_order && isDoneStatus(t.status)
                         );
                         return (
                           <div
@@ -312,13 +335,29 @@ export default function PathDetailPage() {
                 </div>
 
                 <div className="mt-8 flex flex-wrap gap-4">
-                  <button
-                    onClick={handleStartPath}
-                    disabled={startingPath || steps.length === 0}
-                    className="rounded-lg bg-[#1F2A44] px-5 py-3 text-white hover:opacity-90 disabled:opacity-50"
-                  >
-                    {startingPath ? "Choosing path..." : "Choose this path"}
-                  </button>
+                  {steps.length === 0 ? (
+                    <button
+                      disabled
+                      className="cursor-not-allowed rounded-lg bg-slate-300 px-5 py-3 text-white"
+                    >
+                      Plan not available yet
+                    </button>
+                  ) : isCurrentPath ? (
+                    <button
+                      disabled
+                      className="cursor-not-allowed rounded-lg bg-slate-300 px-5 py-3 text-white"
+                    >
+                      Current path
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleStartPath}
+                      disabled={startingPath}
+                      className="rounded-lg bg-[#1F2A44] px-5 py-3 text-white hover:opacity-90 disabled:opacity-50"
+                    >
+                      {startingPath ? "Choosing path..." : "Choose this path"}
+                    </button>
+                  )}
 
                   <button
                     onClick={() => router.push("/mentors")}

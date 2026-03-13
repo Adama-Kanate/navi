@@ -56,6 +56,14 @@ type PathStep = {
   step_order: number;
 };
 
+function normalizeTaskStatus(status: string | null) {
+  return (status || "").trim().toLowerCase().replace(/\s+/g, "");
+}
+
+function isDoneStatus(status: string | null) {
+  return normalizeTaskStatus(status) === "done";
+}
+
 export default function DashboardPage() {
   const supabase = createClient();
   const router = useRouter();
@@ -299,18 +307,16 @@ export default function DashboardPage() {
     return "Identify one realistic path and break it into small actions for the next 7 days.";
   }
 
-  const totalTasks = tasks.length;
-  const completedTasks = tasks.filter((task) => task.status === "done").length;
-  const progressPercentage =
-    totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
-
   const stepOrders = new Set(pathSteps.map((s) => s.step_order));
   const totalSteps = pathSteps.length;
   const completedSteps = tasks.filter(
-    (t) => t.status === "done" && t.week_number !== null && stepOrders.has(t.week_number)
+    (t) => isDoneStatus(t.status) && t.week_number !== null && stepOrders.has(t.week_number)
   ).length;
   const stepProgressPercentage =
     totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0;
+  const nextActionTask = [...tasks]
+    .sort((a, b) => (a.week_number ?? Number.MAX_SAFE_INTEGER) - (b.week_number ?? Number.MAX_SAFE_INTEGER))
+    .find((task) => !isDoneStatus(task.status));
 
   if (loading) {
     return (
@@ -402,25 +408,6 @@ export default function DashboardPage() {
             </div>
 
             <div className="mt-6 rounded-2xl border border-slate-200 p-6">
-              <p className="text-sm text-slate-500">Your progress</p>
-
-              <h2 className="mt-2 text-2xl font-semibold text-[#1F2A44]">
-                {progressPercentage}% of your current plan completed
-              </h2>
-
-              <div className="mt-4 h-3 w-full rounded-full bg-slate-200">
-                <div
-                  className="h-3 rounded-full bg-[#1F2A44] transition-all"
-                  style={{ width: `${progressPercentage}%` }}
-                />
-              </div>
-
-              <p className="mt-3 text-sm text-slate-600">
-                {completedTasks} of {totalTasks} task{totalTasks > 1 ? "s" : ""} completed
-              </p>
-            </div>
-
-            <div className="mt-6 rounded-2xl border border-slate-200 p-6">
               <div className="flex items-center justify-between gap-4">
                 <div>
                   <p className="text-sm text-slate-500">Current path</p>
@@ -453,11 +440,11 @@ export default function DashboardPage() {
 
                   {totalSteps > 0 && (
                     <div className="mt-4">
+                      <p className="text-sm text-slate-500">Your progress</p>
                       <div className="flex items-center justify-between">
-                        <p className="text-sm text-slate-500">
+                        <p className="text-sm font-semibold text-[#1F2A44]">
                           {completedSteps} / {totalSteps} steps completed
                         </p>
-                        <p className="text-sm font-semibold text-[#1F2A44]">{stepProgressPercentage}%</p>
                       </div>
                       <div className="mt-2 h-2 w-full rounded-full bg-slate-200">
                         <div
@@ -544,55 +531,29 @@ export default function DashboardPage() {
             <div className="mt-6 rounded-2xl border border-slate-200 p-6">
               <div className="flex items-center justify-between gap-4">
                 <div>
-                  <p className="text-sm text-slate-500">Your action plan</p>
+                  <p className="text-sm text-slate-500">Next action</p>
                   <h2 className="mt-2 text-2xl font-semibold text-[#1F2A44]">
-                    {tasks.length > 0
-                      ? `${tasks.length} task${tasks.length > 1 ? "s" : ""} in your current plan`
-                      : "No tasks yet"}
+                    {nextActionTask ? nextActionTask.title : "Your current plan is complete"}
                   </h2>
                 </div>
 
                 <button
-                  onClick={() => router.push("/plan")}
+                  onClick={() => router.push(nextActionTask ? "/plan" : "/paths")}
                   className="rounded-lg bg-[#1F2A44] px-5 py-3 text-white hover:opacity-90"
                 >
-                  View tasks
+                  {nextActionTask ? "Open this task" : "Explore paths"}
                 </button>
               </div>
 
-              {tasks.length > 0 && (
-                <div className="mt-6 space-y-4">
-                  {tasks.slice(0, 3).map((task) => (
-                    <div key={task.id} className="rounded-xl bg-[#F3F6FA] p-4">
-                      <p className="text-sm text-slate-500">
-                        Week {task.week_number || "—"} • {task.status || "todo"}
-                      </p>
-
-                      <h3 className="mt-2 text-lg font-semibold text-[#1F2A44]">
-                        {task.title}
-                      </h3>
-
-                      {task.description && (
-                        <p className="mt-2 text-sm text-slate-600">{task.description}</p>
-                      )}
-
-                      {task.status !== "done" ? (
-                        <button
-                          onClick={() => toggleTaskStatus(task.id, task.status)}
-                          className="mt-4 rounded-lg bg-[#1F2A44] px-4 py-2 text-white hover:opacity-90"
-                        >
-                          Mark as done
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => toggleTaskStatus(task.id, task.status)}
-                          className="mt-4 rounded-lg border border-slate-300 px-4 py-2 text-slate-700 hover:bg-slate-50"
-                        >
-                          Mark as todo
-                        </button>
-                      )}
-                    </div>
-                  ))}
+              {nextActionTask && (
+                <div className="mt-4 rounded-xl bg-[#F3F6FA] p-4">
+                  <p className="text-sm text-slate-500">From your current action plan</p>
+                  <p className="text-sm text-slate-500">
+                    Week {nextActionTask.week_number || "—"} • {nextActionTask.status || "todo"}
+                  </p>
+                  {nextActionTask.description && (
+                    <p className="mt-2 text-sm text-slate-600">{nextActionTask.description}</p>
+                  )}
                 </div>
               )}
             </div>
