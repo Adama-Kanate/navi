@@ -1,12 +1,35 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { createClient } from "@/lib/supabase/client";
 
 export default function ResetPasswordPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-screen bg-[#FAFAFA]">
+          <Navbar />
+          <section className="flex items-center justify-center px-6 py-24">
+            <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-sm">
+              <h1 className="text-2xl font-semibold text-[#1F2A44]">Set a new password</h1>
+              <p className="mt-4 rounded-lg bg-slate-100 px-4 py-3 text-sm text-slate-700">
+                Preparing your password reset...
+              </p>
+            </div>
+          </section>
+          <Footer />
+        </main>
+      }
+    >
+      <ResetPasswordContent />
+    </Suspense>
+  );
+}
+
+function ResetPasswordContent() {
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
   const searchParams = useSearchParams();
