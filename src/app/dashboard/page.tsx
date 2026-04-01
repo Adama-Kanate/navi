@@ -48,6 +48,7 @@ export default function DashboardPage() {
   const [activePath, setActivePath] = useState<ActivePath | null>(null);
   const [pathSteps, setPathSteps] = useState<PathStep[]>([]);
   const [error, setError] = useState("");
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
   useEffect(() => {
     async function loadDashboard() {
@@ -135,6 +136,37 @@ export default function DashboardPage() {
           task.id === taskId ? { ...task, status: nextStatus } : task
         )
       );
+    }
+  }
+
+  async function handleDeleteAccount() {
+    const confirmed = window.confirm(
+      "This will permanently delete your account and all associated data. This action cannot be undone. Continue?"
+    );
+
+    if (!confirmed || deletingAccount) {
+      return;
+    }
+
+    setDeletingAccount(true);
+
+    try {
+      const response = await fetch("/api/delete-account", {
+        method: "POST",
+      });
+
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        const message = body?.error || "Failed to delete account.";
+        throw new Error(message);
+      }
+
+      await supabase.auth.signOut();
+      router.push("/");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to delete account.";
+      window.alert(message);
+      setDeletingAccount(false);
     }
   }
 
@@ -320,6 +352,20 @@ export default function DashboardPage() {
                 className="rounded-lg border border-slate-300 px-5 py-3 text-slate-700 hover:bg-slate-50"
               >
                 View my insights
+              </button>
+            </div>
+
+            <div className="mt-12 rounded-2xl border border-red-200 bg-red-50 p-6">
+              <h2 className="text-2xl font-semibold text-red-800">Delete account</h2>
+              <p className="mt-2 text-sm text-red-700">
+                Permanently delete your account and all associated data. This action cannot be undone.
+              </p>
+              <button
+                onClick={handleDeleteAccount}
+                disabled={deletingAccount}
+                className="mt-4 rounded-lg bg-red-700 px-5 py-3 text-white hover:bg-red-800 disabled:opacity-60"
+              >
+                {deletingAccount ? "Deleting..." : "Delete my account"}
               </button>
             </div>
           </div>
