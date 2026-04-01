@@ -63,7 +63,9 @@ export default function LoginPage() {
       return;
     }
 
-    setMessage("Check your email for a password reset link.");
+    setMessage(
+      "Password reset email sent. You should receive it within 1 to 3 minutes (sometimes up to 10 minutes)."
+    );
     setResetLoading(false);
   }
 

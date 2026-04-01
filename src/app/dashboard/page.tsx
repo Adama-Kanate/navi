@@ -6,36 +6,11 @@ import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { createClient } from "@/lib/supabase/client";
 
-type Profile = {
-  id: string;
-  full_name: string | null;
-  current_status: string | null;
-  target_decision: string | null;
-  deadline_window: string | null;
-  stuck_level: number | null;
-  constraints: string[] | null;
-};
-
-type Path = {
-  id: string;
-  title: string;
-  category: string | null;
-  short_description: string | null;
-};
-
 type ActivePath = {
   id: string;
   title: string;
   category: string | null;
   short_description: string | null;
-};
-
-type Mentor = {
-  id: string;
-  full_name: string;
-  title: string | null;
-  short_bio: string | null;
-  booking_url: string | null;
 };
 
 type Task = {
@@ -69,13 +44,9 @@ export default function DashboardPage() {
   const router = useRouter();
 
   const [loading, setLoading] = useState(true);
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [paths, setPaths] = useState<Path[]>([]);
-  const [mentors, setMentors] = useState<Mentor[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [activePath, setActivePath] = useState<ActivePath | null>(null);
   const [pathSteps, setPathSteps] = useState<PathStep[]>([]);
-  const [answersMap, setAnswersMap] = useState<Record<string, string>>({});
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -91,7 +62,7 @@ export default function DashboardPage() {
 
       const { data: profileData, error: profileError } = await supabase
         .from("profiles")
-        .select("*")
+        .select("id")
         .eq("id", user.id)
         .single();
 
@@ -105,8 +76,6 @@ export default function DashboardPage() {
         router.push("/onboarding");
         return;
       }
-
-      setProfile(profileData);
 
       const { data: activePathRow } = await supabase
         .from("user_active_paths")
@@ -132,80 +101,6 @@ export default function DashboardPage() {
 
         setPathSteps(stepsData || []);
       }
-
-      const { data: answersData } = await supabase
-        .from("decision_answers")
-        .select("dimension, answer")
-        .eq("user_id", user.id);
-
-      if (answersData) {
-        const map = Object.fromEntries(
-          (answersData as DecisionAnswer[]).map((item) => [item.dimension, item.answer])
-        );
-        setAnswersMap(map);
-      }
-
-      // Paths: exact match → decision fallback → status fallback
-      let pathsData: Path[] | null = null;
-
-      const { data: exactPaths } = await supabase
-        .from("paths")
-        .select("id, title, category, short_description")
-        .eq("status_target", profileData.current_status)
-        .eq("decision_target", profileData.target_decision);
-
-      if (exactPaths && exactPaths.length > 0) {
-        pathsData = exactPaths;
-      } else {
-        const { data: decisionPaths } = await supabase
-          .from("paths")
-          .select("id, title, category, short_description")
-          .eq("decision_target", profileData.target_decision);
-
-        if (decisionPaths && decisionPaths.length > 0) {
-          pathsData = decisionPaths;
-        } else {
-          const { data: statusPaths } = await supabase
-            .from("paths")
-            .select("id, title, category, short_description")
-            .eq("status_target", profileData.current_status);
-
-          pathsData = statusPaths || [];
-        }
-      }
-
-      setPaths(pathsData || []);
-
-      // Mentors: exact match → decision fallback → status fallback
-      let mentorsData: Mentor[] | null = null;
-
-      const { data: exactMentors } = await supabase
-        .from("mentors")
-        .select("id, full_name, title, short_bio, booking_url")
-        .eq("expertise_status", profileData.current_status)
-        .eq("expertise_decision", profileData.target_decision);
-
-      if (exactMentors && exactMentors.length > 0) {
-        mentorsData = exactMentors;
-      } else {
-        const { data: decisionMentors } = await supabase
-          .from("mentors")
-          .select("id, full_name, title, short_bio, booking_url")
-          .eq("expertise_decision", profileData.target_decision);
-
-        if (decisionMentors && decisionMentors.length > 0) {
-          mentorsData = decisionMentors;
-        } else {
-          const { data: statusMentors } = await supabase
-            .from("mentors")
-            .select("id, full_name, title, short_bio, booking_url")
-            .eq("expertise_status", profileData.current_status);
-
-          mentorsData = statusMentors || [];
-        }
-      }
-
-      setMentors(mentorsData || []);
 
       const { data: tasksData, error: tasksError } = await supabase
         .from("plan_tasks")
@@ -243,70 +138,6 @@ export default function DashboardPage() {
     }
   }
 
-  function getSuggestedNextStep() {
-    if (!profile) return "Complete your profile to unlock your next steps.";
-
-    const interest = answersMap.interest;
-    const priority = answersMap.priority;
-    const environment = answersMap.environment;
-    const risk = answersMap.risk;
-
-    if (profile.target_decision === "Choose a first job") {
-      if (interest === "analytical") {
-        return "Identify 2 analytical roles and compare the skills they require.";
-      }
-      if (interest === "people-focused") {
-        return "Compare 2 people-oriented roles and speak with one professional in that area.";
-      }
-      if (priority === "stability") {
-        return "Focus on stable first-job options and compare their entry requirements.";
-      }
-      return "Clarify 2 target roles and identify the skills and experiences each one requires.";
-    }
-
-    if (profile.target_decision === "Choose an internship") {
-      if (interest === "technical") {
-        return "Shortlist 3 technical internships and prepare one tailored application this week.";
-      }
-      return "Shortlist 3 internship targets and prepare one tailored application this week.";
-    }
-
-    if (profile.target_decision === "Choose a master's program") {
-      if (priority === "learning") {
-        return "Compare 3 master's programs with strong learning outcomes and note their deadlines.";
-      }
-      return "Compare 3 programs, review deadlines, and note the required documents.";
-    }
-
-    if (profile.target_decision === "Switch careers") {
-      if (risk === "low") {
-        return "Define one low-risk transition path and test it with one small practical step.";
-      }
-      return "Define one realistic transition path and validate it with a small practical test.";
-    }
-
-    if (profile.target_decision === "Choose post-secondary options") {
-      if (environment === "academic") {
-        return "Compare 3 academically strong post-secondary options that fit your constraints.";
-      }
-      return "Build a shortlist of post-secondary options that match your strengths and constraints.";
-    }
-
-    if (profile.target_decision === "Build confidence in one direction") {
-      return "Choose one realistic direction and test it through one simple discussion or activity.";
-    }
-
-    if (profile.target_decision === "Explore career interests") {
-      return "Write down 3 interests and connect each one to a possible study or career direction.";
-    }
-
-    if (profile.target_decision === "Choose a study track") {
-      return "Compare your available study tracks and ask one trusted adult for feedback.";
-    }
-
-    return "Identify one realistic path and break it into small actions for the next 7 days.";
-  }
-
   const stepOrders = new Set(pathSteps.map((s) => s.step_order));
   const totalSteps = pathSteps.length;
   const completedSteps = tasks.filter(
@@ -339,12 +170,10 @@ export default function DashboardPage() {
       <section className="px-6 py-20">
         <div className="mx-auto max-w-6xl">
           <div className="rounded-2xl bg-white p-8 shadow-sm">
-            <h1 className="text-4xl font-semibold text-[#1F2A44]">
-              Welcome back{profile?.full_name ? `, ${profile.full_name}` : ""}
-            </h1>
+            <h1 className="text-4xl font-semibold text-[#1F2A44]">Execution dashboard</h1>
 
             <p className="mt-3 text-lg text-slate-600">
-              Here is your current Navi profile and decision context.
+              Focus on your active path, track your progress, and complete your next tasks.
             </p>
 
             {error && (
@@ -353,61 +182,7 @@ export default function DashboardPage() {
               </p>
             )}
 
-            <div className="mt-10 grid gap-6 md:grid-cols-2">
-              <div className="rounded-2xl border border-slate-200 p-6">
-                <p className="text-sm text-slate-500">Current status</p>
-                <h2 className="mt-2 text-xl font-semibold text-[#1F2A44]">
-                  {profile?.current_status || "Not provided"}
-                </h2>
-              </div>
-
-              <div className="rounded-2xl border border-slate-200 p-6">
-                <p className="text-sm text-slate-500">Target decision</p>
-                <h2 className="mt-2 text-xl font-semibold text-[#1F2A44]">
-                  {profile?.target_decision || "Not provided"}
-                </h2>
-              </div>
-
-              <div className="rounded-2xl border border-slate-200 p-6">
-                <p className="text-sm text-slate-500">Next important deadline</p>
-                <h2 className="mt-2 text-xl font-semibold text-[#1F2A44]">
-                  {profile?.deadline_window || "Not provided"}
-                </h2>
-              </div>
-
-              <div className="rounded-2xl border border-slate-200 p-6">
-                <p className="text-sm text-slate-500">Stuck level</p>
-                <h2 className="mt-2 text-xl font-semibold text-[#1F2A44]">
-                  {profile?.stuck_level ? `${profile.stuck_level}/10` : "Not provided"}
-                </h2>
-              </div>
-            </div>
-
-            <div className="mt-6 rounded-2xl border border-slate-200 p-6">
-              <p className="text-sm text-slate-500">Constraints</p>
-
-              {profile?.constraints && profile.constraints.length > 0 ? (
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {profile.constraints.map((constraint) => (
-                    <span
-                      key={constraint}
-                      className="rounded-full bg-[#DCE6F2] px-3 py-1 text-sm text-[#1F2A44]"
-                    >
-                      {constraint}
-                    </span>
-                  ))}
-                </div>
-              ) : (
-                <p className="mt-2 text-slate-600">No constraints provided yet.</p>
-              )}
-            </div>
-
-            <div className="mt-6 rounded-2xl bg-[#1F2A44] p-6 text-white">
-              <p className="text-sm text-slate-200">Suggested next step</p>
-              <h2 className="mt-2 text-2xl font-semibold">{getSuggestedNextStep()}</h2>
-            </div>
-
-            <div className="mt-6 rounded-2xl border border-slate-200 p-6">
+            <div className="mt-10 rounded-2xl border border-slate-200 p-6">
               <div className="flex items-center justify-between gap-4">
                 <div>
                   <p className="text-sm text-slate-500">Current path</p>
@@ -461,76 +236,6 @@ export default function DashboardPage() {
             <div className="mt-6 rounded-2xl border border-slate-200 p-6">
               <div className="flex items-center justify-between gap-4">
                 <div>
-                  <p className="text-sm text-slate-500">Suggested paths</p>
-                  <h2 className="mt-2 text-2xl font-semibold text-[#1F2A44]">
-                    {paths.length > 0
-                      ? `${paths.length} path${paths.length > 1 ? "s" : ""} matched to your profile`
-                      : "No matched paths yet"}
-                  </h2>
-                </div>
-
-                <button
-                  onClick={() => router.push("/paths")}
-                  className="rounded-lg bg-[#1F2A44] px-5 py-3 text-white hover:opacity-90"
-                >
-                  View my paths
-                </button>
-              </div>
-
-              {paths.length > 0 && (
-                <div className="mt-6 grid gap-4 md:grid-cols-2">
-                  {paths.slice(0, 2).map((path) => (
-                    <div key={path.id} className="rounded-xl bg-[#F3F6FA] p-4">
-                      <p className="text-sm text-slate-500">{path.category || "Path"}</p>
-                      <h3 className="mt-2 text-lg font-semibold text-[#1F2A44]">
-                        {path.title}
-                      </h3>
-                      <p className="mt-2 text-sm text-slate-600">
-                        {path.short_description}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="mt-6 rounded-2xl border border-slate-200 p-6">
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <p className="text-sm text-slate-500">Suggested mentors</p>
-                  <h2 className="mt-2 text-2xl font-semibold text-[#1F2A44]">
-                    {mentors.length > 0
-                      ? `${mentors.length} mentor${mentors.length > 1 ? "s" : ""} matched to your profile`
-                      : "No matched mentors yet"}
-                  </h2>
-                </div>
-
-                <button
-                  onClick={() => router.push("/mentors")}
-                  className="rounded-lg bg-[#1F2A44] px-5 py-3 text-white hover:opacity-90"
-                >
-                  View mentors
-                </button>
-              </div>
-
-              {mentors.length > 0 && (
-                <div className="mt-6 grid gap-4 md:grid-cols-2">
-                  {mentors.slice(0, 2).map((mentor) => (
-                    <div key={mentor.id} className="rounded-xl bg-[#F3F6FA] p-4">
-                      <p className="text-sm text-slate-500">{mentor.title || "Mentor"}</p>
-                      <h3 className="mt-2 text-lg font-semibold text-[#1F2A44]">
-                        {mentor.full_name}
-                      </h3>
-                      <p className="mt-2 text-sm text-slate-600">{mentor.short_bio}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="mt-6 rounded-2xl border border-slate-200 p-6">
-              <div className="flex items-center justify-between gap-4">
-                <div>
                   <p className="text-sm text-slate-500">Next action</p>
                   <h2 className="mt-2 text-2xl font-semibold text-[#1F2A44]">
                     {nextActionTask ? nextActionTask.title : "Your current plan is complete"}
@@ -558,12 +263,63 @@ export default function DashboardPage() {
               )}
             </div>
 
-            <div className="mt-8">
+            <div className="mt-6 rounded-2xl border border-slate-200 p-6">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm text-slate-500">All tasks</p>
+                  <h2 className="mt-2 text-2xl font-semibold text-[#1F2A44]">
+                    {tasks.length > 0 ? `${tasks.length} task${tasks.length > 1 ? "s" : ""}` : "No tasks yet"}
+                  </h2>
+                </div>
+
+                <button
+                  onClick={() => router.push("/plan")}
+                  className="rounded-lg bg-[#1F2A44] px-5 py-3 text-white hover:opacity-90"
+                >
+                  Open full plan
+                </button>
+              </div>
+
+              {tasks.length === 0 ? (
+                <p className="mt-4 text-slate-600">No tasks available yet. Choose a path to generate your action plan.</p>
+              ) : (
+                <div className="mt-6 space-y-3">
+                  {tasks.map((task) => (
+                    <div key={task.id} className="rounded-xl bg-[#F3F6FA] p-4">
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <p className="text-sm text-slate-500">
+                            Week {task.week_number || "-"} - {task.status || "todo"}
+                          </p>
+                          <h3 className="mt-1 text-lg font-semibold text-[#1F2A44]">{task.title}</h3>
+                          {task.description && (
+                            <p className="mt-1 text-sm text-slate-600">{task.description}</p>
+                          )}
+                        </div>
+
+                        <button
+                          onClick={() => toggleTaskStatus(task.id, task.status)}
+                          className={`rounded-lg px-4 py-2 text-sm ${
+                            isDoneStatus(task.status)
+                              ? "border border-slate-300 text-slate-700 hover:bg-slate-50"
+                              : "bg-[#1F2A44] text-white hover:opacity-90"
+                          }`}
+                        >
+                          {isDoneStatus(task.status) ? "Mark as todo" : "Mark as done"}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="mt-6 flex flex-wrap gap-3">
               <button
-                onClick={() => router.push("/onboarding")}
-                className="rounded-lg bg-[#1F2A44] px-5 py-3 text-white hover:opacity-90"
+                onClick={() => router.push("/results")}
+                className="rounded-lg border border-slate-300 px-5 py-3 text-slate-700 hover:bg-slate-50"
               >
-                Edit profile
+                View my insights
               </button>
             </div>
           </div>

@@ -115,7 +115,7 @@ export default function DecisionPage() {
     }
 
     setSaving(false);
-    router.push("/dashboard");
+    router.push("/results");
   }
 
   function getIntroText() {

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { createClient } from "@/lib/supabase/client";
+import { loadOnboardingDraft, saveOnboardingDraft } from "@/lib/onboarding-draft";
 
 export default function OnboardingPage() {
   const supabase = createClient();
@@ -93,6 +94,17 @@ export default function OnboardingPage() {
         setFullName((user.user_metadata?.full_name as string) || "");
       }
 
+      // Local draft has priority so users can restart step 1 with their latest edits.
+      const draft = loadOnboardingDraft();
+      if (draft) {
+        setFullName(draft.fullName);
+        setCurrentStatus(draft.currentStatus);
+        setTargetDecision(draft.targetDecision);
+        setDeadlineWindow(draft.deadlineWindow);
+        setStuckLevel(draft.stuckLevel);
+        setConstraints(draft.constraints);
+      }
+
       setLoading(false);
     }
 
@@ -119,6 +131,15 @@ export default function OnboardingPage() {
       .split(",")
       .map((item) => item.trim())
       .filter(Boolean);
+
+    saveOnboardingDraft({
+      fullName,
+      currentStatus,
+      targetDecision,
+      deadlineWindow,
+      stuckLevel,
+      constraints,
+    });
 
     const { error } = await supabase.from("profiles").upsert({
       id: user.id,

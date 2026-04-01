@@ -38,7 +38,9 @@ export default function SignupPage() {
       return;
     }
 
-    setMessage("Account created. Check your email to confirm your account.");
+    setMessage(
+      "Account created. You should receive a confirmation email within 1 to 3 minutes (sometimes up to 10 minutes)."
+    );
     setLoading(false);
     setFullName("");
     setEmail("");
